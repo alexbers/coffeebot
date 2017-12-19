@@ -1,0 +1,10 @@
+version: '2.0'
+services:
+  coffeebot:
+    build: .
+    ports:
+      - "10000:10000"
+    volumes:
+      - ./db:/home/coffee/coffeebot/db
+    restart: on-failure
+    mem_limit: 1024m

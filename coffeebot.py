@@ -8,7 +8,7 @@ import traceback
 
 import coffeeapi
 
-from secrets import BOT_TOKEN, TG_ADMIN_ID, MACHINE_ID
+from secrets import BOT_TOKEN, TG_ADMIN_ID, MACHINE_ID, URL_SECRET
 
 RESP_HEADERS = [("Content-Type", "application/json")]
 
@@ -138,6 +138,7 @@ def handle_request(request):
             send_msg(msg_from_id, "Для начала введите кофекод")
         else:
             wait_time = get_machine_op_rate_wait(MACHINE_ID)
+            send_msg(msg_from_id, "Запрос получен и обрабатывается", ["☕"])
             if wait_time > 0:
                 send_msg(msg_from_id, "Слишком быстрые запросы, подождите %d сек." % wait_time, ["☕"])
             else:
@@ -184,6 +185,9 @@ def application(environ, start_response):
     if environ["REQUEST_METHOD"] != "POST":
         start_response("405 Method Not Allowed", RESP_HEADERS)
         return [json.dumps({"result": "bad method"}).encode()]
+
+    if URL_SECRET not in environ["PATH_INFO"]:
+        return [json.dumps({"result": "bad bot url"}).encode()]
 
     try:
         request_body_size = int(environ.get('CONTENT_LENGTH', 0))

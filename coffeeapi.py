@@ -2,6 +2,7 @@ import requests
 import json
 import sys
 import time
+import os
 
 from secrets import LOGIN, PASSWORD, MACHINE_ID, DEV_ID
 
@@ -33,7 +34,9 @@ def obtain_token(login, password):
 
 def obtain_and_cache_token(login, password):
     token = obtain_token(LOGIN, PASSWORD)
-    open(TOKEN_PATH, "w").write(token)
+    open_flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with  os.fdopen(os.open(TOKEN_PATH, open_flags, 0o600), "w") as f:
+        f.write(token)
     return token
 
 
