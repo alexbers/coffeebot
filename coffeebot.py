@@ -12,6 +12,8 @@ from secrets import BOT_TOKEN, TG_ADMIN_ID, MACHINE_ID
 
 RESP_HEADERS = [("Content-Type", "application/json")]
 
+TEST_MODE = False
+
 DB_PATH = "%s/db" % os.path.dirname(os.path.abspath(__file__))
 
 def update_cups_left(user_id, cups):
@@ -129,8 +131,8 @@ def handle_request(request):
         if cups_left == 0:
             send_msg(msg_from_id, "Для начала введите кофекод")
         else:
-            send_msg(msg_from_id, "Осталось чашек: %d. Готовим?  " % cups_left +
-                     "(автомат на шестом этаже матмеха)", ["✅", "❌"])
+            send_msg(msg_from_id, "Осталось чашек: %d. Вы находитесь около " % cups_left +
+                     "кофейного автомата на шестом этаже матмеха?", ["✅", "❌"])
     elif msg_text == "✅":
         if cups_left == 0:
             send_msg(msg_from_id, "Для начала введите кофекод")
@@ -139,16 +141,16 @@ def handle_request(request):
             if wait_time > 0:
                 send_msg(msg_from_id, "Слишком быстрые запросы, подождите %d сек." % wait_time, ["☕"])
             else:
-                result = coffeeapi.buy_cofee(test_mode=True)
+                update_machine_op_time(MACHINE_ID)
+                result, reason = coffeeapi.buy_cofee(test_mode=TEST_MODE)
                 if result:
                     cups_left -= 1
                     update_cups_left(msg_from_id, cups_left)
-                    update_machine_op_time(MACHINE_ID)
                     send_msg(msg_from_id, "Команда ушла автомату", ["☕"])
                     send_msg(TG_ADMIN_ID, "Кофе доставлен пользователю %s" % format_user(msg_from))
                 else:
                     send_msg(msg_from_id, "Ошибка при передаче команды автомату", ["☕"])
-                    send_msg(TG_ADMIN_ID, "Ошибка доставки кофе пользователю %s" % format_user(msg_from))
+                    send_msg(TG_ADMIN_ID, "Ошибка доставки кофе пользователю %s %s" % (format_user(msg_from), reason))
     elif msg_text.upper().startswith("COFFEE_"):
         code = msg_text.upper()
         code_cups = get_cups_by_code(code)

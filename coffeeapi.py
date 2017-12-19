@@ -1,6 +1,7 @@
 import requests
 import json
 import sys
+import time
 
 from secrets import LOGIN, PASSWORD, MACHINE_ID, DEV_ID
 
@@ -87,8 +88,20 @@ def get_first_payment_method(token):
     return resp['paymentMethods'][0]
 
 
+def wait_for_reciept(token, order_id, expect_credit):
+    ATTEMPTS = 6
+    TIMEOUT = 5
+
+    for i in range(ATTEMPTS):
+        resp = call_api(token, "/api/Machine/Receipt/%d" % order_id)
+        if resp.get("receipt", {}).get("paymentAmount", 0) == expect_credit:
+            return True
+        time.sleep(TIMEOUT)
+    return False
+
+
 def buy_cofee(token=None, test_mode=False):
-    CREDIT = 101
+    CREDIT = 3500
 
     if not token:
         token = get_or_obtain_token()
@@ -97,7 +110,7 @@ def buy_cofee(token=None, test_mode=False):
     order_id = get_order_id(token)
 
     if test_mode:
-        return True
+        return True, "ok"
 
     data = {
         "orderId": order_id,
@@ -108,8 +121,14 @@ def buy_cofee(token=None, test_mode=False):
     resp = call_api(token, "/api/Machine/Order", method="POST", data=data)
 
     if "status" not in resp:
-        return False
+        return False, "no status code: %s" % resp
     
-    return resp["status"]
+    if not resp["status"]:
+        return False, resp.get("message", "no message")
 
-buy_cofee(test_mode=True)
+    result = wait_for_reciept(token, order_id, CREDIT)
+    if not result:
+        return False, "wait_for_reciept failed"
+
+    return True, "%s" % resp
+
