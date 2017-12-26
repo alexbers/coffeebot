@@ -1,0 +1,16 @@
+[Unit]
+    Description=Coffeebot
+    After=network-online.target docker.service
+    Wants=network-online.target docker.service
+    Requires=docker.service
+
+[Service]
+    ExecStart=/usr/bin/docker-compose up --build
+    WorkingDirectory=/home/coffee/coffeebot
+    User=root
+    Group=root
+    Restart=on-failure
+    StartLimitBurst=3
+    StartLimitInterval=60s
+[Install]
+    WantedBy=multi-user.target
