@@ -3,6 +3,7 @@ import json
 import sys
 import time
 import os
+import random
 
 from secrets import LOGIN, PASSWORD, MACHINE_ID, DEV_ID
 
@@ -86,9 +87,9 @@ def get_order_id(token):
     return machine["orderId"]
 
 
-def get_first_payment_method(token):
+def get_random_payment_method(token):
     resp = get_payment_info(token)
-    return resp['paymentMethods'][0]
+    return random.choice(resp['paymentMethods'])
 
 
 def wait_for_reciept(token, order_id, expect_credit):
@@ -109,7 +110,7 @@ def buy_cofee(token=None, test_mode=False):
     if not token:
         token = get_or_obtain_token()
 
-    payment_method = get_first_payment_method(token)
+    payment_method = get_random_payment_method(token)
     order_id = get_order_id(token)
 
     if test_mode:
@@ -134,4 +135,3 @@ def buy_cofee(token=None, test_mode=False):
         return False, "wait_for_reciept failed"
 
     return True, "%s" % resp
-
