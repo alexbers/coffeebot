@@ -16,8 +16,14 @@ TEST_MODE = False
 
 DB_PATH = "%s/db" % os.path.dirname(os.path.abspath(__file__))
 
+
+def update_cups_mod_time(user_id, mod_time):
+    open("%s/user_%d/cups_mod_time.txt" % (DB_PATH, user_id), "w").write(str(int(mod_time)))
+
+
 def update_cups_left(user_id, cups):
     open("%s/user_%d/cups.txt" % (DB_PATH, user_id), "w").write(str(cups))
+    update_cups_mod_time(user_id, time.time())
 
 
 def get_cups_left(user_id):
@@ -36,6 +42,25 @@ def get_cups_left(user_id):
         update_cups_left(user_id, cups)
 
     return cups
+
+
+def get_cups_mod_time(user_id):
+    try:
+        os.mkdir("%s/user_%d" % (DB_PATH, user_id))
+    except FileExistsError:
+        pass
+
+    open("%s/user_%d/cups_mod_time.txt" % (DB_PATH, user_id), "a").close()
+    cups_mod_time = open("%s/user_%d/cups_mod_time.txt" % (DB_PATH, user_id), "r").read().strip()
+
+    try:
+        cups_mod_time = int(cups_mod_time)
+    except ValueError:
+        cups_mod_time = 0
+        update_cups_mod_time(user_id, cups_mod_time)
+
+    return cups_mod_time
+
 
 def send_msg(user_id, text, buttons=[]):
     url = "https://api.telegram.org/bot%s/sendMessage" % BOT_TOKEN
@@ -106,6 +131,34 @@ def create_code(code, amount):
     open(code_file, "w").write(str(amount))
     return True
 
+
+def get_all_accts():
+    accts = []
+    for d in os.listdir(DB_PATH):
+        m = re.fullmatch("user_([0-9]+)", d)
+        if m:
+            accts.append(int(m.group(1)))
+    return accts
+
+def select_respawn_acct():
+    candidates = []
+
+    for acct in get_all_accts():
+        if get_cups_left(acct) == 0:
+            candidates.append((get_cups_mod_time(acct), acct))
+    
+    if not candidates:
+        return None
+
+    candidates.sort()
+    return candidates[0][1]
+
+
+def respawn_coffee(acct_id):
+    cups_left = get_cups_left(acct_id)
+    update_cups_left(acct_id, cups_left + 1)
+
+
 def format_user(user):
     ans = user["first_name"]
     if "last_name" in user:
@@ -174,8 +227,25 @@ def handle_request(request):
                 send_msg(msg_from_id, "Кофекод создан")
             else:
                 send_msg(msg_from_id, "Ошибка создания кофекода")
+        elif msg_text.startswith("/respawn"):
+            m = re.fullmatch(r"/respawn(?:\s+([0-9]+))?", msg_text)
+            if m and m.group(1):
+                acct_id = int(m.group(1))
+            else:
+                acct_id = select_respawn_acct()
+
+            if acct_id:
+                respawn_coffee(acct_id)
+                cups_left = get_cups_left(acct_id)
+                if cups_left > 0:
+                    send_msg(acct_id, "Случился кофереспавн. Осталось чашек %d" % cups_left)
+                    send_msg(msg_from_id, "Кофереспавн аккаунту %d" % acct_id)
+                else:
+                    send_msg(msg_from_id, "Ошибка кофереспавна: всё ещё %d" % cups_left)
+            else:
+                send_msg(msg_from_id, "Ошибка кофереспавна: некому")
         else:
-            send_msg(msg_from_id, "Хз", ["☕"])    
+            send_msg(msg_from_id, "Хз", ["☕"])
 
     else:
         send_msg(msg_from_id, "☕ ?", ["☕"])
