@@ -12,7 +12,7 @@ API_HOST = "app.24-u.co.uk"
 HEADERS = {
     "x-api-version": "1.0",
     "x-api-lang": "en",
-    "X-App-Version": "24U/Android-22/Google Nexus 4 - 5.1.0 - API 22 - 768x1280/1.6.1"
+    "X-App-Version": "24U/Android-22/Google Nexus 4 - 5.1.0 - API 22 - 768x1280/1.7.1"
 }
 
 TOKEN_PATH = "db/token.txt"
@@ -58,7 +58,7 @@ def call_api(token, endpoint, method="GET", data=None):
     headers["Authorization"] = "bearer " + token
     headers["Content-type"] = "application/json"
 
-    url = "https://%s/%s" % (API_HOST, endpoint)
+    url = "https://" + API_HOST + endpoint
 
     resp = requests.request(method, url, headers=headers, data=json.dumps(data))
 
@@ -66,14 +66,18 @@ def call_api(token, endpoint, method="GET", data=None):
 
 
 def get_account(token):
-    return call_api(token, "api/Account/UserInfo")
+    return call_api(token, "/api/Account/UserInfo")
 
 
 def get_payment_info(token):
-    return call_api(token, "api/Payment")
+    return call_api(token, "/api/Payment")
 
 def get_order_id(token):
     resp = call_api(token, "/api/Machine/%s@uonline" % MACHINE_ID)
+    if "machine" not in resp:
+        print("no machine in get_order_id", resp, file=sys.stderr)
+        return None
+
     machine = resp["machine"]
     good_machine = (machine["status"] == "Ready")
     good_machine &= (machine["decimalPoint"] == 2)
@@ -89,6 +93,9 @@ def get_order_id(token):
 
 def get_random_payment_method(token):
     resp = get_payment_info(token)
+    if "paymentMethods" not in resp:
+        print("no payment methods in get_random_payment_method", resp, file=sys.stderr)
+        return None
     return random.choice(resp['paymentMethods'])
 
 
@@ -105,13 +112,19 @@ def wait_for_reciept(token, order_id, expect_credit):
 
 
 def buy_cofee(token=None, test_mode=False):
-    CREDIT = 3500
+    CREDIT = 4000
 
     if not token:
         token = get_or_obtain_token()
 
     payment_method = get_random_payment_method(token)
+    if not payment_method:
+        return False, "get_random_payment_method failed"
+
     order_id = get_order_id(token)
+
+    if not order_id:
+        return False, "get_order_id failed"
 
     if test_mode:
         return True, "ok"
